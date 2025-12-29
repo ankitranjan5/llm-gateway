@@ -30,17 +30,23 @@ public class ChatController {
         Thread.ofVirtual().start(() -> {
             try {
                 // 1. Route based on the generic string in the DTO
-                LLMProvider provider = routerService.route(requestDto.model());
-
-                // 2. Pass the DTO directly!
-                // The Controller doesn't care if it's OpenAI or Anthropic underneath.
-                provider.streamChat(requestDto, chunk -> {
+                routerService.routeAndExecute(requestDto, chunk->{
                     try {
                         emitter.send(SseEmitter.event().data(chunk));
                     } catch (IOException e) {
                         throw new RuntimeException(e);
                     }
                 });
+
+                // 2. Pass the DTO directly!
+                // The Controller doesn't care if it's OpenAI or Anthropic underneath.
+//                provider.streamChat(requestDto, chunk -> {
+//                    try {
+//                        emitter.send(SseEmitter.event().data(chunk));
+//                    } catch (IOException e) {
+//                        throw new RuntimeException(e);
+//                    }
+//                });
 
                 emitter.complete();
             } catch (Exception e) {

@@ -28,7 +28,16 @@ resilience4j:
       openai:
         failure-rate-threshold: 50
         wait-duration-in-open-state: 10s
+        sliding-window-size: 10
+        permitted-number-of-calls-in-half-open-state: 3
+        timeout-duration: 3s
 
 openai:
   api:
-    key: ${OPENAI_API_KEY}
+    key: abc
+    #${OPENAI_API_KEY}
+
+groq:
+  api:
+    key: ${GROQ_API_KEY}
+

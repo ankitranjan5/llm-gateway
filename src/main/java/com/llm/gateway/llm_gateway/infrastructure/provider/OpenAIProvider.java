@@ -1,16 +1,23 @@
 package com.llm.gateway.llm_gateway.infrastructure.provider;
 
+import com.llm.gateway.llm_gateway.application.service.RouterService;
 import com.openai.client.OpenAIClient;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
 import com.openai.models.ChatModel;
 import com.llm.gateway.llm_gateway.dto.GatewayRequest;
 import com.llm.gateway.llm_gateway.domain.port.LLMProvider;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.timelimiter.annotation.TimeLimiter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.function.Consumer;
 
-@Service("openAIProvider")
+
 public class OpenAIProvider implements LLMProvider {
+
+    private static final Logger log = LoggerFactory.getLogger(RouterService.class);
 
     private final OpenAIClient client;
 
@@ -19,17 +26,24 @@ public class OpenAIProvider implements LLMProvider {
     }
 
     @Override
+    @CircuitBreaker(name = "openai") // Tracks failures
+    @TimeLimiter(name = "openai")
     public void streamChat(GatewayRequest request, Consumer<String> chunkHandler) {
         // 1. Internal Mapping (DTO -> OpenAI SDK)
         ChatCompletionCreateParams params = mapToOpenAI(request);
 
         // 2. Execution
+        try{
         client.chat().completions().createStreaming(params).stream()
                 .forEach(chunk -> {
                     if (chunk.choices().size() > 0) {
                         chunk.choices().get(0).delta().content().ifPresent(chunkHandler::accept);
                     }
                 });
+        } catch (Exception e){
+            log.error("Error during OpenAI streaming: ", e);
+            throw e;
+        }
     }
 
     // Private helper: Keeps the messiness of mapping hidden inside this class
