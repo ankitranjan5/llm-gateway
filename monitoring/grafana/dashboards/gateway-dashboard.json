@@ -1,0 +1,90 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": "GatewayDB",
+      "fieldConfig": { "defaults": { "unit": "currencyUSD" } },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 0 },
+      "id": 1,
+      "options": { "reduceOptions": { "calcs": ["sum"], "fields": "" } },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "SELECT sum(cost_usd) as value FROM request_logs",
+          "refId": "A",
+          "select": [[{ "params": ["value"], "type": "column" }]]
+        }
+      ],
+      "title": "Total Spend (Lifetime)",
+      "type": "stat"
+    },
+    {
+      "datasource": "GatewayDB",
+      "fieldConfig": { "defaults": { "unit": "ms" } },
+      "gridPos": { "h": 8, "w": 18, "x": 6, "y": 0 },
+      "id": 2,
+      "targets": [
+        {
+          "format": "time_series",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "SELECT timestamp as \"time\", latency_ms as value, provider as metric FROM request_logs WHERE $__timeFilter(timestamp) ORDER BY timestamp ASC",
+          "refId": "A"
+        }
+      ],
+      "title": "Latency (ms) by Provider",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "GatewayDB",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 3,
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT provider, count(*) as count FROM request_logs GROUP BY provider",
+          "refId": "A"
+        }
+      ],
+      "title": "Traffic Distribution (Requests per Provider)",
+      "type": "piechart"
+    },
+    {
+      "datasource": "GatewayDB",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 4,
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT user_id, count(*) as requests, sum(total_tokens) as tokens, sum(cost_usd) as cost FROM request_logs GROUP BY user_id ORDER BY cost DESC LIMIT 10",
+          "refId": "A"
+        }
+      ],
+      "title": "Top Spenders (User Audit)",
+      "type": "table"
+    }
+  ],
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": [],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "LLM Gateway Operations",
+  "uid": "llm-gateway-ops",
+  "version": 1,
+  "weekStart": ""
+}

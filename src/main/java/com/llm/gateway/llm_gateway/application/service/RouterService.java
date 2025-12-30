@@ -2,6 +2,7 @@ package com.llm.gateway.llm_gateway.application.service;
 
 import com.llm.gateway.llm_gateway.domain.model.ChatRequest;
 import com.llm.gateway.llm_gateway.domain.port.LLMProvider;
+import com.llm.gateway.llm_gateway.dto.ExecutionMetadata;
 import com.llm.gateway.llm_gateway.dto.GatewayRequest;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import org.slf4j.Logger;
@@ -23,7 +24,7 @@ public class RouterService {
         this.providers = providers;
     }
 
-    public void routeAndExecute(GatewayRequest request, Consumer<String> chunkHandler) {
+    public ExecutionMetadata routeAndExecute(GatewayRequest request, Consumer<String> chunkHandler) {
         String targetModel = request.model();
         LLMProvider primary = getProvider(targetModel);
 
@@ -31,17 +32,18 @@ public class RouterService {
             // Attempt 1: Primary Provider
             log.info("Routing to primary provider for model: {}", targetModel);
             primary.streamChat(request, chunkHandler);
+            return new ExecutionMetadata("openai", targetModel);
 
         } catch (CallNotPermittedException e) {
             // Case A: Circuit is OPEN (OpenAI is known to be down)
             log.warn("Circuit Open for {}. Failing over to Groq.", targetModel);
-            executeFallback(request, chunkHandler);
+            return executeFallback(request, chunkHandler);
 
         }
         catch (Exception e) {
             // Case C: Unknown Error (500s, Network, etc.)
             log.error("Unexpected error from {}. Failing over.", targetModel, e);
-            executeFallback(request, chunkHandler);
+            return executeFallback(request, chunkHandler);
         }
     }
 
@@ -51,7 +53,7 @@ public class RouterService {
         return providers.get("openai");
     }
 
-    private void executeFallback(GatewayRequest request, Consumer<String> chunkHandler) {
+    private ExecutionMetadata executeFallback(GatewayRequest request, Consumer<String> chunkHandler) {
         // FALLBACK STRATEGY:
         // If OpenAI (GPT-4) fails, we degrade gracefully to Llama 3 (via Groq).
         // It's faster, cheaper, and ensures the user gets *some* answer.
@@ -60,11 +62,11 @@ public class RouterService {
 
         // 2. Create a NEW Request Object (Copy everything, change model)
         GatewayRequest fallbackRequest = new GatewayRequest(
-                fallbackModel,                  // <--- THE CHANGE
-                request.messages(),     // Copy
-                request.temperature(),  // Copy
-                request.stream(),       // Copy
-                request.metadata()      // Copy
+                fallbackModel,
+                request.messages(),
+                request.temperature(),
+                request.stream(),
+                request.metadata()
         );
 
         log.info(">>> ENGAGING FALLBACK: Using Llama 3 (Groq) <<<");
@@ -75,5 +77,6 @@ public class RouterService {
         // chunkHandler.accept("[System Notice: Primary model busy. Switching to backup...]\n\n");
 
         fallback.streamChat(fallbackRequest, chunkHandler);
+        return new ExecutionMetadata("groq", fallbackModel);
     }
 }

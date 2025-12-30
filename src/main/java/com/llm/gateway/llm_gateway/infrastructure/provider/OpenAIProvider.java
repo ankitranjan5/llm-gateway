@@ -27,7 +27,7 @@ public class OpenAIProvider implements LLMProvider {
 
     @Override
     @CircuitBreaker(name = "openai") // Tracks failures
-    @TimeLimiter(name = "openai")
+//    @TimeLimiter(name = "openai")
     public void streamChat(GatewayRequest request, Consumer<String> chunkHandler) {
         // 1. Internal Mapping (DTO -> OpenAI SDK)
         ChatCompletionCreateParams params = mapToOpenAI(request);
