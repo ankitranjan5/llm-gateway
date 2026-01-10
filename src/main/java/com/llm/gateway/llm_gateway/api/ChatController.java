@@ -57,7 +57,7 @@ public class ChatController {
                 String fullResponse = responseBuffer.toString();
                 int outputTokens = tokenService.count(fullResponse);
                 long duration = System.currentTimeMillis() - startTime;
-                logUsage(requestDto.model(), inputTokens, outputTokens, duration);
+                logUsage(metadata.modelUsed(), inputTokens, outputTokens, duration);
                 requestLogService.log(requestDto, metadata.provider(), metadata.modelUsed(),
                         inputTokens, outputTokens, duration, true);
 
