@@ -10,59 +10,23 @@ import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.timelimiter.annotation.TimeLimiter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.util.function.Consumer;
 
+@Service("openai")
+public class OpenAIProvider extends OpenAITypeProvider{
 
-public class OpenAIProvider implements LLMProvider {
-
-    private static final Logger log = LoggerFactory.getLogger(RouterService.class);
-
-    private final OpenAIClient client;
-
-    public OpenAIProvider(OpenAIClient client) {
-        this.client = client;
+    public OpenAIProvider(@Qualifier("openaiClient") OpenAIClient client) {
+        super(client);
     }
 
     @Override
-    @CircuitBreaker(name = "openai") // Tracks failures
-//    @TimeLimiter(name = "openai")
+    @CircuitBreaker(name = "openai")
     public void streamChat(GatewayRequest request, Consumer<String> chunkHandler) {
         // 1. Internal Mapping (DTO -> OpenAI SDK)
-        ChatCompletionCreateParams params = mapToOpenAI(request);
-
-        // 2. Execution
-        try{
-        client.chat().completions().createStreaming(params).stream()
-                .forEach(chunk -> {
-                    if (chunk.choices().size() > 0) {
-                        chunk.choices().get(0).delta().content().ifPresent(chunkHandler::accept);
-                    }
-                });
-        } catch (Exception e){
-            log.error("Error during OpenAI streaming: ", e);
-            throw e;
-        }
+        super.streamChat(request, chunkHandler);
     }
 
-    // Private helper: Keeps the messiness of mapping hidden inside this class
-    private ChatCompletionCreateParams mapToOpenAI(GatewayRequest dto) {
-        var builder = ChatCompletionCreateParams.builder()
-                .model(ChatModel.of(dto.model()));
-
-        if (dto.messages() != null) {
-            dto.messages().forEach(msg -> {
-                switch (msg.role().toLowerCase()) {
-                    case "user" -> builder.addUserMessage(msg.content());
-                    case "system" -> builder.addSystemMessage(msg.content());
-                    case "assistant" -> builder.addAssistantMessage(msg.content());
-                }
-            });
-        }
-
-        if (dto.temperature() != null) builder.temperature(dto.temperature());
-
-        return builder.build();
-    }
 }

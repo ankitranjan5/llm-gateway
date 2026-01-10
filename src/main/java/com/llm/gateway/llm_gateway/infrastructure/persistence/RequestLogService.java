@@ -1,7 +1,5 @@
 package com.llm.gateway.llm_gateway.infrastructure.persistence;
 
-// 1. Enable Async in your Main Application class
-// @EnableAsync
 
 import com.llm.gateway.llm_gateway.domain.service.CostCalculator;
 import com.llm.gateway.llm_gateway.dto.GatewayRequest;

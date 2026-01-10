@@ -9,12 +9,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-public class OpenAIConfig {
+public class OpenAITypeConfig {
 
     @Value("${openai.api.key}")
     private String apiKey;
 
-    @Bean
+    @Bean("openaiClient")
     public OpenAIClient openAIClient() {
         return OpenAIOkHttpClient.builder()
                 .apiKey(apiKey)
@@ -29,14 +29,4 @@ public class OpenAIConfig {
                 .build();
     }
 
-    @Bean("openai") // Name this bean "openai"
-    public LLMProvider standardOpenAIProvider(OpenAIClient openAIClient) {
-        return new OpenAIProvider(openAIClient);
-    }
-
-    @Bean("groq")   // Name this bean "groq"
-    public LLMProvider groqProvider(OpenAIClient groqClient) {
-        // REUSE the same class, just inject the Groq client!
-        return new OpenAIProvider(groqClient);
-    }
 }

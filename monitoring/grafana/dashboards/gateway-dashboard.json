@@ -29,7 +29,18 @@
     },
     {
       "datasource": "GatewayDB",
-      "fieldConfig": { "defaults": { "unit": "ms" } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "showPoints": "always",
+            "pointSize": 5,
+            "spanNulls": true
+          }
+        }
+      },
       "gridPos": { "h": 8, "w": 18, "x": 6, "y": 0 },
       "id": 2,
       "targets": [
@@ -49,6 +60,14 @@
       "datasource": "GatewayDB",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
       "id": 3,
+      "options": {
+        "reduceOptions": {
+          "values": true,
+          "calcs": []
+        },
+        "pieType": "pie",
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
       "targets": [
         {
           "format": "table",

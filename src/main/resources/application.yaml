@@ -4,6 +4,8 @@ spring:
   threads:
     virtual:
       enabled: true
+  aop:
+    proxy-target-class: true
 
   datasource:
     url: jdbc:postgresql://localhost:5432/gateway_db
@@ -37,7 +39,13 @@ resilience4j:
     instances:
       openai:
         failure-rate-threshold: 50
-        wait-duration-in-open-state: 10s
+        wait-duration-in-open-state: 100s
+        sliding-window-size: 10
+        permitted-number-of-calls-in-half-open-state: 3
+        timeout-duration: 3s
+      groq:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 100s
         sliding-window-size: 10
         permitted-number-of-calls-in-half-open-state: 3
         timeout-duration: 3s
@@ -50,4 +58,28 @@ openai:
 groq:
   api:
     key: ${GROQ_API_KEY}
+
+
+gateway:
+  models:
+    # High-End Model
+    gpt-4o-mini:
+      provider: "openai"
+      input-cost: 5.00
+      output-cost: 15.00
+      fallbacks: ["llama-3.3-70b-versatile"] # <--- The Fallback Chain
+
+#    # Mid-Range Model
+#    llama3-70b-8192:
+#      provider: "groq"
+#      input-cost: 0.59
+#      output-cost: 0.79
+#      fallbacks: ["llama-3.3-70b-versatile"]
+
+    # Cheap/Fast Model
+    "[llama-3.3-70b-versatile]":
+      provider: "groq"
+      input-cost: 0.05
+      output-cost: 0.10
+      fallbacks: [] # End of the line
 
