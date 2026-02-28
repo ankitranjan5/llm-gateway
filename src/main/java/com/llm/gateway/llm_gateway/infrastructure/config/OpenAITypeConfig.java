@@ -1,7 +1,5 @@
-package com.llm.gateway.llm_gateway.config;
+package com.llm.gateway.llm_gateway.infrastructure.config;
 
-import com.llm.gateway.llm_gateway.domain.port.LLMProvider;
-import com.llm.gateway.llm_gateway.infrastructure.provider.OpenAIProvider;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import org.springframework.beans.factory.annotation.Value;

@@ -1,4 +1,4 @@
-package com.llm.gateway.llm_gateway.dto;
+package com.llm.gateway.llm_gateway.domain.model;
 
 import java.util.List;
 import java.util.Map;

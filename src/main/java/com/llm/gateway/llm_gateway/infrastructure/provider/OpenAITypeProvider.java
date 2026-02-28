@@ -1,8 +1,7 @@
 package com.llm.gateway.llm_gateway.infrastructure.provider;
 
-import com.llm.gateway.llm_gateway.application.service.RouterService;
-import com.llm.gateway.llm_gateway.domain.port.LLMProvider;
-import com.llm.gateway.llm_gateway.dto.GatewayRequest;
+import com.llm.gateway.llm_gateway.service.RouterService;
+import com.llm.gateway.llm_gateway.domain.model.GatewayRequest;
 import com.openai.client.OpenAIClient;
 import com.openai.models.ChatModel;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;

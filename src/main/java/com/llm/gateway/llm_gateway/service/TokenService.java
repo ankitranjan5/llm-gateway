@@ -1,13 +1,11 @@
-package com.llm.gateway.llm_gateway.application.service;
+package com.llm.gateway.llm_gateway.service;
 
 import com.knuddels.jtokkit.Encodings;
 import com.knuddels.jtokkit.api.Encoding;
 import com.knuddels.jtokkit.api.EncodingRegistry;
 import com.knuddels.jtokkit.api.EncodingType;
-import com.llm.gateway.llm_gateway.dto.GatewayRequest;
+import com.llm.gateway.llm_gateway.domain.model.GatewayRequest;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 @Service
 public class TokenService {

@@ -1,20 +1,19 @@
 package com.llm.gateway.llm_gateway.api;
 
-import com.llm.gateway.llm_gateway.application.service.RouterService;
-import com.llm.gateway.llm_gateway.application.service.TokenService;
-import com.llm.gateway.llm_gateway.domain.model.ChatRequest;
-import com.llm.gateway.llm_gateway.domain.port.LLMProvider;
-import com.llm.gateway.llm_gateway.dto.ExecutionMetadata;
-import com.llm.gateway.llm_gateway.dto.GatewayRequest;
+import com.llm.gateway.llm_gateway.service.RouterService;
+import com.llm.gateway.llm_gateway.service.TokenService;
+import com.llm.gateway.llm_gateway.domain.model.ExecutionMetadata;
+import com.llm.gateway.llm_gateway.domain.model.GatewayRequest;
 import com.llm.gateway.llm_gateway.infrastructure.persistence.RequestLogService;
+import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
-import java.util.concurrent.Executors;
 
 @RestController
 @RequestMapping("/v1/chat")
@@ -33,7 +32,8 @@ public class ChatController {
     }
 
     @PostMapping(value = "/completions", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter chat(@RequestBody GatewayRequest requestDto,
+    @RateLimiter(name="gateway-api", fallbackMethod = "rateLimitFallback")
+    public ResponseEntity<SseEmitter> chat(@RequestBody GatewayRequest requestDto,
                            @RequestHeader("Authorization") String authHeader) {
 
         int inputTokens = tokenService.estimateInputTokens(requestDto);
@@ -81,12 +81,16 @@ public class ChatController {
             }
         });
 
-        return emitter;
+        return ResponseEntity.status(200).body(emitter);
     }
 
     private void logUsage(String model, int promptTokens, int completionTokens, long ms) {
         // Later, we will write this to Postgres!
         log.info("USAGE: Model={} | Input={} | Output={} | Total={} | Time={}ms",
                 model, promptTokens, completionTokens, promptTokens + completionTokens, ms);
+    }
+
+    public ResponseEntity<SseEmitter> rateLimitFallback(GatewayRequest request, String authHeader, Throwable t) {
+        return ResponseEntity.status(429).body(null);
     }
 }

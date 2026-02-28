@@ -14,7 +14,7 @@ services:
 
   # 2. Database
   postgres:
-    image: postgres:15
+    image: pgvector/pgvector:pg15
     ports:
       - "5432:5432"
     environment:

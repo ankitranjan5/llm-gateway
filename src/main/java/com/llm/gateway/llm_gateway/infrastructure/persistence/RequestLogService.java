@@ -2,7 +2,7 @@ package com.llm.gateway.llm_gateway.infrastructure.persistence;
 
 
 import com.llm.gateway.llm_gateway.domain.service.CostCalculator;
-import com.llm.gateway.llm_gateway.dto.GatewayRequest;
+import com.llm.gateway.llm_gateway.domain.model.GatewayRequest;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 

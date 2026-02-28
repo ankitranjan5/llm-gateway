@@ -1,6 +1,6 @@
 package com.llm.gateway.llm_gateway.infrastructure.provider;
 
-import com.llm.gateway.llm_gateway.dto.GatewayRequest;
+import com.llm.gateway.llm_gateway.domain.model.GatewayRequest;
 import com.openai.client.OpenAIClient;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import org.springframework.beans.factory.annotation.Qualifier;

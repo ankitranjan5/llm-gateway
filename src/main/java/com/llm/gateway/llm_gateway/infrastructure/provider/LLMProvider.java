@@ -1,8 +1,6 @@
-package com.llm.gateway.llm_gateway.domain.port;
+package com.llm.gateway.llm_gateway.infrastructure.provider;
 
-import com.llm.gateway.llm_gateway.domain.model.ChatRequest;
-import com.llm.gateway.llm_gateway.dto.GatewayRequest;
-import com.openai.models.chat.completions.ChatCompletionCreateParams;
+import com.llm.gateway.llm_gateway.domain.model.GatewayRequest;
 
 import java.util.function.Consumer;
 

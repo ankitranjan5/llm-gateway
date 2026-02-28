@@ -1,8 +1,6 @@
 package com.llm.gateway.llm_gateway.infrastructure.provider;
 
-import com.llm.gateway.llm_gateway.domain.model.ChatRequest;
-import com.llm.gateway.llm_gateway.domain.port.LLMProvider;
-import com.llm.gateway.llm_gateway.dto.GatewayRequest;
+import com.llm.gateway.llm_gateway.domain.model.GatewayRequest;
 import org.springframework.stereotype.Service;
 
 import java.util.function.Consumer;
