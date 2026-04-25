@@ -5,7 +5,7 @@ import java.util.Map;
 
 // This captures the incoming JSON perfectly
 public record GatewayRequest(
-        String model,                // We will hijack this for routing
+        String model,
         List<MessageDto> messages,
         Double temperature,
         Boolean stream,

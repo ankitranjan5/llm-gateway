@@ -20,6 +20,13 @@ spring:
     hibernate:
       ddl-auto: update
       dialect: org.hibernate.dialect.PostgreSQLDialect
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+      embedding:
+        enabled: true
+        options:
+          model: nomic-embed-text
 
 
 management:
@@ -62,21 +69,42 @@ resilience4j:
 
 openai:
   api:
-    key: abc
-    #${OPENAI_API_KEY}
+    key: ${OPENAI_API_KEY}
 
 groq:
   api:
     key: ${GROQ_API_KEY}
 
+gemini:
+  api:
+    key: ${GEMINI_API_KEY}
+
+anthropic:
+  api:
+    key: ${CLAUDE_API_KEY}
+
 
 gateway:
+  embedding:
+    provider: "ollama"
   models:
     # High-End Model
     gpt-4o-mini:
       provider: "openai"
       input-cost: 5.00
       output-cost: 15.00
+      fallbacks: ["claude-opus-4-7","gemini-3-flash-preview","llama-3.3-70b-versatile"] # <--- The Fallback Chain
+
+    claude-opus-4-7:
+      provider: "anthropic"
+      input-cost: 5.00
+      output-cost: 15.00
+      fallbacks: [ "gemini-3-flash-preview","llama-3.3-70b-versatile" ]
+
+    gemini-3-flash-preview:
+      provider: "google"
+      input-cost: 3.00
+      output-cost: 10.00
       fallbacks: ["llama-3.3-70b-versatile"] # <--- The Fallback Chain
 
 #    # Mid-Range Model
@@ -92,4 +120,18 @@ gateway:
       input-cost: 0.05
       output-cost: 0.10
       fallbacks: [] # End of the line
+
+    "[llama-3.1-8b-instant]":
+      provider: "groq"
+      input-cost: 0.01
+      output-cost: 0.05
+      fallbacks: [ ] # End of the line
+
+
+
+
+log:
+  level:
+    root: DEBUG
+    com.example.gateway: DEBUG
 

@@ -3,11 +3,13 @@ package com.llm.gateway.llm_gateway.domain.port;
 import com.openai.client.OpenAIClient;
 import com.openai.models.embeddings.EmbeddingCreateParams;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import java.util.List;
 
 @Configuration
+@ConditionalOnProperty(name = "gateway.embedding.provider", havingValue = "openai")
 public class EmbeddingConfig {
 
     @Bean
@@ -35,6 +37,10 @@ public class EmbeddingConfig {
 
             // Extract vector from response
             return response.data().get(0).embedding();
+        }
+        @Override
+        public int getDimensions() {
+            return 1536;
         }
     }
 }

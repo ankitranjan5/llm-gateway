@@ -37,21 +37,44 @@ public class RouterService {
         this.userService = userService;
     }
 
-    public ExecutionMetadata routeAndExecute(GatewayRequest request, Consumer<String> chunkHandler) {
+    public void determineQueryComplexity(GatewayRequest request, Consumer<String> chunkHandler){
         String currentModelId = request.model();
-        String userId = request.metadata().get("user_id").toString();
-        List<String> userGroups = userService.getUserGroups(userId);
+        var config = getModelConfig(currentModelId);
+        String providerName = config.getProvider();
+        ExecutionMetadata metadata = execute(currentModelId, providerName, request, chunk -> {
+            // No-op for this simple method
+        });
+    }
 
-        List<String> contextDocs = retrievalService.retrieveContext(
-                request.messages().getLast().content(),
-                userGroups // <--- ACL ENFORCEMENT HAPPENS HERE
-        );
+    public ExecutionMetadata routeAndExecute(GatewayRequest request, Consumer<String> chunkHandler) {
+        String userQuery = request.messages().getLast().content();
+        SmartRouterService smartRouter = new SmartRouterService(this);
+        String currentModelId = request.model();
+        String targetModel = request.model();
 
-        GatewayRequest enrichedRequest = injectContext(request, contextDocs);
+//        if (!smartRouter.isComplexQuery(userQuery)) {
+//            log.info("🚀 Simple query detected. Downgrading to Llama-3-70b to save costs.");
+//            targetModel = "llama-3.3-70b-versatile";
+////            wasDowngraded = true;
+//        }
+
+        List<String> contextDocs = null;
+
+        if(request.metadata() != null && request.metadata().get("user_id") != null) {
+            String userId = request.metadata().get("user_id").toString();
+            List<String> userGroups = userService.getUserGroups(userId);
+
+            contextDocs = retrievalService.retrieveContext(
+                    request.messages().getLast().content(),
+                    userGroups
+            );
+        }
+
+        GatewayRequest enrichedRequest = injectContextAndOptimizeModel(targetModel, request, contextDocs);
 
         var config = getModelConfig(currentModelId);
 
-        String targetModel = enrichedRequest.model();
+
         try {
             // Attempt 1: Primary Provider
 //            log.info("Routing to primary provider for model: {}", targetModel);
@@ -146,16 +169,22 @@ public class RouterService {
 
     // Inside SmartRouterService.java
 
-    private GatewayRequest injectContext(GatewayRequest originalRequest, List<String> contextDocs) {
+    private GatewayRequest injectContextAndOptimizeModel(String targetModel, GatewayRequest originalRequest, List<String> contextDocs) {
         if (contextDocs == null || contextDocs.isEmpty()) {
-            return originalRequest; // No changes needed
+            return new GatewayRequest(
+                    targetModel,
+                    originalRequest.messages(),
+                    originalRequest.temperature(),
+                    originalRequest.stream(),
+                    originalRequest.metadata()
+            ); // No changes needed
         }
 
         // 1. Format the Context Block
         String contextBlock = String.join("\n---\n", contextDocs);
         String systemInstruction = """
         \n[CONTEXT_START]
-        The following documents are retrieved from the knowledge base. 
+        The following documents are retrieved from the knowledge base.
         Use them to answer the user's question. If the answer is not in the context, say so.
         
         %s
@@ -184,7 +213,7 @@ public class RouterService {
 
         // 4. Return NEW Request (GatewayRequest is a Record, so it's immutable)
         return new GatewayRequest(
-                originalRequest.model(),
+                targetModel,
                 newMessages,
                 originalRequest.temperature(),
                 originalRequest.stream(),

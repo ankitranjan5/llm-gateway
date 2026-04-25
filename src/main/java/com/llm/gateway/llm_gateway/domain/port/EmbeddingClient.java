@@ -9,4 +9,5 @@ public interface EmbeddingClient {
      * @return A list of doubles representing the vector (e.g., 1536 dimensions for OpenAI).
      */
     List<Float> embed(String text);
+    int getDimensions();
 }
