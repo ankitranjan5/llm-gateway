@@ -36,6 +36,9 @@ public class RequestLog {
     @Column(precision = 10, scale = 6)
     private BigDecimal costUsd;
 
+    @Column(precision = 10, scale = 6)
+    private BigDecimal costSavedUsd;
+
     private long latencyMs;
     private String status;
     private String errorMessage;

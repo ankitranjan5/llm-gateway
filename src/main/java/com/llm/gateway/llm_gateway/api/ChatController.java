@@ -58,7 +58,7 @@ public class ChatController {
                 int outputTokens = tokenService.count(fullResponse);
                 long duration = System.currentTimeMillis() - startTime;
                 logUsage(metadata.modelUsed(), inputTokens, outputTokens, duration);
-                requestLogService.log(requestDto, metadata.provider(), metadata.modelUsed(),
+                requestLogService.log(requestDto, metadata.provider(), metadata.modelUsed(), metadata.modelRequested(),
                         inputTokens, outputTokens, duration, true);
 
                 emitter.complete();
@@ -70,6 +70,7 @@ public class ChatController {
 
                 requestLogService.log(
                         requestDto,
+                        "unknown",
                         "unknown",
                         "unknown",
                         inputTokens,

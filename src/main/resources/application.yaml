@@ -99,13 +99,13 @@ gateway:
       provider: "anthropic"
       input-cost: 5.00
       output-cost: 15.00
-      fallbacks: [ "gemini-3-flash-preview","llama-3.3-70b-versatile" ]
+      fallbacks: [ "gemini-3-flash-preview","llama-3.1-8b-instant" ]
 
     gemini-3-flash-preview:
       provider: "google"
       input-cost: 3.00
       output-cost: 10.00
-      fallbacks: ["llama-3.3-70b-versatile"] # <--- The Fallback Chain
+      fallbacks: ["llama-3.1-8b-instant"] # <--- The Fallback Chain
 
 #    # Mid-Range Model
 #    llama3-70b-8192:

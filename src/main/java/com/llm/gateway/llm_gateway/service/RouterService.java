@@ -41,7 +41,7 @@ public class RouterService {
         String currentModelId = request.model();
         var config = getModelConfig(currentModelId);
         String providerName = config.getProvider();
-        ExecutionMetadata metadata = execute(currentModelId, providerName, request, chunk -> {
+        ExecutionMetadata metadata = execute(currentModelId,currentModelId, providerName, request, chunk -> {
             // No-op for this simple method
         });
     }
@@ -52,11 +52,10 @@ public class RouterService {
         String currentModelId = request.model();
         String targetModel = request.model();
 
-//        if (!smartRouter.isComplexQuery(userQuery)) {
-//            log.info("🚀 Simple query detected. Downgrading to Llama-3-70b to save costs.");
-//            targetModel = "llama-3.3-70b-versatile";
-////            wasDowngraded = true;
-//        }
+        if (!smartRouter.isComplexQuery(userQuery)) {
+            log.info("🚀 Simple query detected. Downgrading to Llama-3-70b to save costs.");
+            targetModel = "llama-3.1-8b-instant";
+        }
 
         List<String> contextDocs = null;
 
@@ -72,14 +71,14 @@ public class RouterService {
 
         GatewayRequest enrichedRequest = injectContextAndOptimizeModel(targetModel, request, contextDocs);
 
-        var config = getModelConfig(currentModelId);
+        var config = getModelConfig(targetModel);
 
 
         try {
             // Attempt 1: Primary Provider
 //            log.info("Routing to primary provider for model: {}", targetModel);
 //            primary.streamChat(request, chunkHandler);
-            return execute(currentModelId, config.getProvider(), enrichedRequest, chunkHandler);
+            return execute(currentModelId, targetModel, config.getProvider(), enrichedRequest, chunkHandler);
 //            return new ExecutionMetadata("openai", targetModel);
 
         }
@@ -106,7 +105,7 @@ public class RouterService {
                                 request.metadata()
                         );
 
-                        return execute(fallbackModelId, fallbackConfig.getProvider(), fallbackReq, chunkHandler);
+                        return execute(fallbackModelId, fallbackModelId, fallbackConfig.getProvider(), fallbackReq, chunkHandler);
 
                     } catch (Exception fallbackError) {
                         log.warn("Fallback {} failed. Trying next...", fallbackModelId);
@@ -125,40 +124,14 @@ public class RouterService {
         return providers.get("openai");
     }
 
-    private ExecutionMetadata execute(String model, String providerName, GatewayRequest req, Consumer<String> handler) {
+    private ExecutionMetadata execute(String modelRequested, String modelUsed, String providerName, GatewayRequest req, Consumer<String> handler) {
         LLMProvider provider = providers.get(providerName);
         if (provider == null) throw new IllegalArgumentException("Unknown provider: " + providerName);
 
         provider.streamChat(req, handler);
-        return new ExecutionMetadata(providerName, model);
+        return new ExecutionMetadata(providerName, modelRequested, modelUsed);
     }
 
-    private ExecutionMetadata executeFallback(GatewayRequest request, Consumer<String> chunkHandler) {
-        // FALLBACK STRATEGY:
-        // If OpenAI (GPT-4) fails, we degrade gracefully to Llama 3 (via Groq).
-        // It's faster, cheaper, and ensures the user gets *some* answer.
-
-        String fallbackModel = "llama-3.3-70b-versatile";
-
-        // 2. Create a NEW Request Object (Copy everything, change model)
-        GatewayRequest fallbackRequest = new GatewayRequest(
-                fallbackModel,
-                request.messages(),
-                request.temperature(),
-                request.stream(),
-                request.metadata()
-        );
-
-        log.info(">>> ENGAGING FALLBACK: Using Llama 3 (Groq) <<<");
-
-        LLMProvider fallback = providers.get("groq");
-
-        // Notify the user (Optional but good UX)
-        // chunkHandler.accept("[System Notice: Primary model busy. Switching to backup...]\n\n");
-
-        fallback.streamChat(fallbackRequest, chunkHandler);
-        return new ExecutionMetadata("groq", fallbackModel);
-    }
 
     private ModelRegistry.ModelConfig getModelConfig(String modelId) {
         var config = modelRegistry.getModels().get(modelId);
@@ -169,7 +142,7 @@ public class RouterService {
 
     // Inside SmartRouterService.java
 
-    private GatewayRequest injectContextAndOptimizeModel(String targetModel, GatewayRequest originalRequest, List<String> contextDocs) {
+    private GatewayRequest injectContextAndOptimizeModel(String targetModel,GatewayRequest originalRequest, List<String> contextDocs) {
         if (contextDocs == null || contextDocs.isEmpty()) {
             return new GatewayRequest(
                     targetModel,
@@ -177,7 +150,7 @@ public class RouterService {
                     originalRequest.temperature(),
                     originalRequest.stream(),
                     originalRequest.metadata()
-            ); // No changes needed
+            );
         }
 
         // 1. Format the Context Block

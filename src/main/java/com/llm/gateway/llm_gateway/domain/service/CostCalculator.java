@@ -1,38 +1,71 @@
 package com.llm.gateway.llm_gateway.domain.service;
 
+import com.llm.gateway.llm_gateway.infrastructure.config.ModelRegistry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.List;
 
 @Service
 public class CostCalculator {
 
-    // Pricing (Per 1M Tokens)
-    private static final BigDecimal GPT4_IN = new BigDecimal("5.00");
-    private static final BigDecimal GPT4_OUT = new BigDecimal("15.00");
+    private static final Logger log = LoggerFactory.getLogger(CostCalculator.class);
+    private final ModelRegistry modelRegistry;
 
-    private static final BigDecimal GROQ_LLAMA_IN = new BigDecimal("0.05"); // Approx
-    private static final BigDecimal GROQ_LLAMA_OUT = new BigDecimal("0.08");
+    // A lightweight data carrier for our results
+    public record CostResult(BigDecimal actualCost, BigDecimal theoreticalCost) {}
 
-    public BigDecimal calculateCost(String provider, String model, int input, int output) {
+    public CostCalculator(ModelRegistry modelRegistry) {
+        this.modelRegistry = modelRegistry;
+    }
+
+    public CostResult calculateCost(String modelUsed, String modelRequested, int inputTokens, int outputTokens) {
+        // 1. Calculate Actual Cost
+        List<BigDecimal> actualRates = getCost(modelUsed);
+        BigDecimal actualInCost = calculateTokenCost(actualRates.get(0), inputTokens);
+        BigDecimal actualOutCost = calculateTokenCost(actualRates.get(1), outputTokens);
+        BigDecimal actualCost = actualInCost.add(actualOutCost);
+
+        // Default theoretical to actual (assume no downgrade happened)
+        BigDecimal theoreticalCost = actualCost;
+
+        // 2. Calculate Theoretical Cost (If downgraded)
+        if (!modelUsed.equalsIgnoreCase(modelRequested)) {
+            List<BigDecimal> theoreticalRates = getCost(modelRequested); // <-- THE BUG FIX
+            BigDecimal theoreticalInCost = calculateTokenCost(theoreticalRates.get(0), inputTokens);
+            BigDecimal theoreticalOutCost = calculateTokenCost(theoreticalRates.get(1), outputTokens);
+            theoreticalCost = theoreticalInCost.add(theoreticalOutCost);
+        }
+
+        return new CostResult(actualCost, theoreticalCost);
+    }
+
+    // Helper method to keep the math clean and avoid repeating the division logic
+    private BigDecimal calculateTokenCost(BigDecimal rate, int tokens) {
+        return rate.multiply(BigDecimal.valueOf(tokens))
+                .divide(BigDecimal.valueOf(1_000_000), 6, RoundingMode.HALF_UP);
+    }
+
+    private List<BigDecimal> getCost(String modelName) {
         BigDecimal inputRate = BigDecimal.ZERO;
         BigDecimal outputRate = BigDecimal.ZERO;
 
-        // Simple lookup logic
-        if ("openai".equals(provider) && model.startsWith("gpt-4")) {
-            inputRate = GPT4_IN;
-            outputRate = GPT4_OUT;
-        } else if ("groq".equals(provider)) {
-            inputRate = GROQ_LLAMA_IN;
-            outputRate = GROQ_LLAMA_OUT;
+        try {
+            ModelRegistry.ModelConfig config = modelRegistry.getModels().get(modelName);
+
+            if (config != null) {
+                inputRate = config.getInputCost();
+                outputRate = config.getOutputCost();
+            } else {
+                log.warn("Model '{}' not found in ModelRegistry. Defaulting cost to 0.", modelName);
+            }
+        } catch (Exception e) {
+            log.error("Error calculating cost for model: {}", modelName, e);
         }
 
-        // Formula: (Tokens / 1,000,000) * Rate
-        BigDecimal inCost = inputRate.multiply(BigDecimal.valueOf(input))
-                .divide(BigDecimal.valueOf(1_000_000));
-        BigDecimal outCost = outputRate.multiply(BigDecimal.valueOf(output))
-                .divide(BigDecimal.valueOf(1_000_000));
-
-        return inCost.add(outCost);
+        return List.of(inputRate, outputRate);
     }
 }

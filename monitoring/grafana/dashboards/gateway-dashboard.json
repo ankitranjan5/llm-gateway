@@ -8,20 +8,17 @@
   "panels": [
     {
       "datasource": "GatewayDB",
-      "fieldConfig": { "defaults": { "unit": "currencyUSD" } },
-      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null } ] } } },
+      "gridPos": { "h": 6, "w": 4, "x": 0, "y": 0 },
       "id": 1,
       "options": { "reduceOptions": { "calcs": ["sum"], "fields": "" } },
       "pluginVersion": "10.0.0",
       "targets": [
         {
           "format": "table",
-          "group": [],
-          "metricColumn": "none",
           "rawQuery": true,
           "rawSql": "SELECT sum(cost_usd) as value FROM request_logs",
-          "refId": "A",
-          "select": [[{ "params": ["value"], "type": "column" }]]
+          "refId": "A"
         }
       ],
       "title": "Total Spend (Lifetime)",
@@ -29,25 +26,29 @@
     },
     {
       "datasource": "GatewayDB",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "ms",
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
-            "showPoints": "always",
-            "pointSize": 5,
-            "spanNulls": true
-          }
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] } } },
+      "gridPos": { "h": 6, "w": 4, "x": 0, "y": 6 },
+      "id": 5,
+      "options": { "reduceOptions": { "calcs": ["sum"], "fields": "" }, "colorMode": "value" },
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT sum(cost_saved_usd) as value FROM request_logs",
+          "refId": "A"
         }
-      },
-      "gridPos": { "h": 8, "w": 18, "x": 6, "y": 0 },
+      ],
+      "title": "Total Savings (Smart Routing)",
+      "type": "stat"
+    },
+    {
+      "datasource": "GatewayDB",
+      "fieldConfig": { "defaults": { "unit": "ms", "custom": { "drawStyle": "line", "lineInterpolation": "linear", "showPoints": "always", "pointSize": 5, "spanNulls": true } } },
+      "gridPos": { "h": 12, "w": 16, "x": 4, "y": 0 },
       "id": 2,
       "targets": [
         {
           "format": "time_series",
-          "group": [],
-          "metricColumn": "none",
           "rawQuery": true,
           "rawSql": "SELECT timestamp as \"time\", latency_ms as value, provider as metric FROM request_logs WHERE $__timeFilter(timestamp) ORDER BY timestamp ASC",
           "refId": "A"
@@ -58,16 +59,9 @@
     },
     {
       "datasource": "GatewayDB",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 12 },
       "id": 3,
-      "options": {
-        "reduceOptions": {
-          "values": true,
-          "calcs": []
-        },
-        "pieType": "pie",
-        "tooltip": { "mode": "single", "sort": "none" }
-      },
+      "options": { "reduceOptions": { "values": true, "calcs": [] }, "pieType": "pie", "tooltip": { "mode": "single", "sort": "none" } },
       "targets": [
         {
           "format": "table",
@@ -76,12 +70,29 @@
           "refId": "A"
         }
       ],
-      "title": "Traffic Distribution (Requests per Provider)",
+      "title": "Traffic Distribution",
       "type": "piechart"
     },
     {
       "datasource": "GatewayDB",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "currencyUSD" } },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 12 },
+      "id": 6,
+      "options": { "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true },
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT model_requested as metric, sum(cost_saved_usd) as value FROM request_logs WHERE cost_saved_usd > 0 GROUP BY model_requested ORDER BY value DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "Savings by Target Model",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "GatewayDB",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 12 },
       "id": 4,
       "targets": [
         {
@@ -97,13 +108,8 @@
   ],
   "schemaVersion": 38,
   "style": "dark",
-  "tags": [],
-  "templating": { "list": [] },
   "time": { "from": "now-6h", "to": "now" },
-  "timepicker": {},
-  "timezone": "",
-  "title": "LLM Gateway Operations",
+  "title": "LLM Gateway Operations & FinOps",
   "uid": "llm-gateway-ops",
-  "version": 1,
-  "weekStart": ""
+  "version": 2
 }

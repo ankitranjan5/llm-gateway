@@ -3,11 +3,14 @@ package com.llm.gateway.llm_gateway.infrastructure.persistence;
 
 import com.llm.gateway.llm_gateway.domain.service.CostCalculator;
 import com.llm.gateway.llm_gateway.domain.model.GatewayRequest;
+import com.llm.gateway.llm_gateway.infrastructure.config.ModelRegistry;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
+import javax.swing.plaf.nimbus.NimbusStyle;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 
@@ -23,10 +26,16 @@ public class RequestLogService {
     }
 
     @Async // <--- Runs in background thread
-    public void log(GatewayRequest req, String provider, String usedModel,
+    public void log(GatewayRequest req, String provider, String usedModel, String modelRequested,
                     int inTokens, int outTokens, long latency, boolean success) {
 
-        BigDecimal cost = costCalculator.calculateCost(provider, usedModel, inTokens, outTokens);
+        CostCalculator.CostResult cost = costCalculator.calculateCost(usedModel,modelRequested, inTokens, outTokens);
+        BigDecimal actualCost = cost.actualCost();
+        BigDecimal theoreticalCost = cost.theoreticalCost();
+
+        if(theoreticalCost.equals(BigDecimal.ZERO)){
+            theoreticalCost = actualCost; // Avoid showing "savings" when we don't have cost data
+        }
 
         RequestLog log = RequestLog.builder()
                 .requestId(UUID.randomUUID().toString())
@@ -38,7 +47,8 @@ public class RequestLogService {
                 .inputTokens(inTokens)
                 .outputTokens(outTokens)
                 .totalTokens(inTokens + outTokens)
-                .costUsd(cost)
+                .costUsd(actualCost)
+                .costSavedUsd(theoreticalCost.subtract(actualCost))
                 .latencyMs(latency)
                 .status(success ? "SUCCESS" : "FAILURE")
                 .build();
