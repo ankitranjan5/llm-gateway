@@ -1,0 +1,16 @@
+apiVersion: 1
+
+datasources:
+  - name: GatewayDB
+    type: postgres
+#    uid: gateway-db-uid
+#    access: proxy
+    url: postgres:5432
+    user: user
+    secureJsonData:
+      password: 'password'
+#    isDefault: true
+    jsonData:
+      database: gateway_db
+      sslmode: "disable"
+      postgresVersion: 1500

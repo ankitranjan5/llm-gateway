@@ -1,3 +1,137 @@
 spring:
   application:
     name: llm-gateway
+  threads:
+    virtual:
+      enabled: true
+  aop:
+    proxy-target-class: true
+  sql:
+    init:
+      mode: always
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/gateway_db
+    username: user
+    password: password
+
+      # standard spring boot config
+  jpa:
+    hibernate:
+      ddl-auto: update
+      dialect: org.hibernate.dialect.PostgreSQLDialect
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+      embedding:
+        enabled: true
+        options:
+          model: nomic-embed-text
+
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+
+
+  zipkin:
+    tracing:
+        enabled: true
+        endpoint: http://localhost:9411/api/v2/spans
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      openai:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 100s
+        sliding-window-size: 10
+        permitted-number-of-calls-in-half-open-state: 3
+        timeout-duration: 3s
+      groq:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 100s
+        sliding-window-size: 10
+        permitted-number-of-calls-in-half-open-state: 3
+        timeout-duration: 3s
+  ratelimiter:
+    instances:
+      gateway-api:
+        limit-for-period: 1
+        limit-refresh-period: 1m
+        timeout-duration: 0s
+
+
+openai:
+  api:
+    key: ${OPENAI_API_KEY}
+
+groq:
+  api:
+    key: ${GROQ_API_KEY}
+
+gemini:
+  api:
+    key: ${GEMINI_API_KEY}
+
+anthropic:
+  api:
+    key: ${CLAUDE_API_KEY}
+
+
+gateway:
+  embedding:
+    provider: "ollama"
+  models:
+    # High-End Model
+    gpt-4o-mini:
+      provider: "openai"
+      input-cost: 5.00
+      output-cost: 15.00
+      fallbacks: ["claude-opus-4-7","gemini-3-flash-preview","llama-3.3-70b-versatile"] # <--- The Fallback Chain
+
+    claude-opus-4-7:
+      provider: "anthropic"
+      input-cost: 5.00
+      output-cost: 15.00
+      fallbacks: [ "gemini-3-flash-preview","llama-3.1-8b-instant" ]
+
+    gemini-3-flash-preview:
+      provider: "google"
+      input-cost: 3.00
+      output-cost: 10.00
+      fallbacks: ["llama-3.1-8b-instant"] # <--- The Fallback Chain
+
+#    # Mid-Range Model
+#    llama3-70b-8192:
+#      provider: "groq"
+#      input-cost: 0.59
+#      output-cost: 0.79
+#      fallbacks: ["llama-3.3-70b-versatile"]
+
+    # Cheap/Fast Model
+    "[llama-3.3-70b-versatile]":
+      provider: "groq"
+      input-cost: 0.05
+      output-cost: 0.10
+      fallbacks: [] # End of the line
+
+    "[llama-3.1-8b-instant]":
+      provider: "groq"
+      input-cost: 0.01
+      output-cost: 0.05
+      fallbacks: [ ] # End of the line
+
+
+
+
+log:
+  level:
+    root: DEBUG
+    com.example.gateway: DEBUG
+
