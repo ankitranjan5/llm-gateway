@@ -34,16 +34,6 @@ management:
     sampling:
       probability: 1.0
 
-
-  zipkin:
-    tracing:
-        enabled: true
-        endpoint: http://localhost:9411/api/v2/spans
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics,prometheus
-
 resilience4j:
   circuitbreaker:
     instances:
@@ -54,6 +44,18 @@ resilience4j:
         permitted-number-of-calls-in-half-open-state: 3
         timeout-duration: 3s
       groq:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 100s
+        sliding-window-size: 10
+        permitted-number-of-calls-in-half-open-state: 3
+        timeout-duration: 3s
+      claude:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 100s
+        sliding-window-size: 10
+        permitted-number-of-calls-in-half-open-state: 3
+        timeout-duration: 3s
+      gemini:
         failure-rate-threshold: 50
         wait-duration-in-open-state: 100s
         sliding-window-size: 10

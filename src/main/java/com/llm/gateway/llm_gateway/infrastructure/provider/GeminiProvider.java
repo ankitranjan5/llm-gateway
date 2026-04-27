@@ -5,6 +5,7 @@ import com.google.genai.types.Content;
 import com.google.genai.types.GenerateContentConfig;
 import com.google.genai.types.Part;
 import com.llm.gateway.llm_gateway.domain.model.GatewayRequest;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -25,6 +26,7 @@ public class GeminiProvider implements LLMProvider {
     }
 
     @Override
+    @CircuitBreaker(name = "gemini")
     public void streamChat(GatewayRequest request, Consumer<String> chunkHandler) {
 
         var configBuilder = GenerateContentConfig.builder();
