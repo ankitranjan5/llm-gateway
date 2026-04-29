@@ -1,103 +1,202 @@
-# Enterprise LLM Gateway & Security Layer
+# LLM Gateway Handbook
 
-A centralized, stateless AI Gateway built in Java 21 and Spring Boot. This middleware abstracts multi-provider LLM integrations (OpenAI, Anthropic, Google Gemini, Groq) for downstream enterprise microservices.
+Production-style Java/Spring Boot gateway that routes chat requests across multiple LLM providers, applies ACL-aware retrieval, logs token/cost/latency telemetry, and exposes operational controls for resiliency testing.
 
-Rather than acting as a simple API wrapper, this gateway functions as an observable, self-healing intelligence layer that enforces strict data governance, optimizes inference costs through dynamic routing, and protects internal systems from volatile third-party AI network latency.
+This handbook is focused on running and operating the current codebase as-is.
 
-## 🏗️ Core Architecture: The Stateless Proxy
+## What This Service Does
 
-To ensure infinite horizontal scalability and eliminate the need for heavy database connection pools, the Gateway is strictly stateless. Downstream applications manage their own conversational state, while the Gateway evaluates and processes every request in isolation.
+- Accepts chat completion requests through a single API endpoint.
+- Routes requests to provider-specific clients (`openai`, `anthropic`, `google`, `groq`).
+- Optionally downgrades simple queries to cheaper models for cost savings.
+- Supports document ingestion and ACL-aware context retrieval via Postgres + `pgvector`.
+- Persists request telemetry (`request_logs`) for Grafana FinOps dashboards.
+- Uses Resilience4j circuit breakers and a global rate limiter.
 
-A custom stream-healing abstraction layer dynamically translates flat message arrays into the strict schemas required by different providers (e.g., extracting system prompts and merging consecutive roles for Anthropic's pedantic Messages API, or building nested multimodal parts for Gemini) entirely on the fly.
+## Current Architecture At A Glance
 
-## ✨ Key Capabilities
+- **API Layer**
+  - `POST /v1/chat/completions` (SSE streaming response)
+  - `POST /api/documents/ingest`
+  - Chaos endpoints under `/chaos/*` for circuit testing
+- **Routing Layer**
+  - `RouterService` performs model selection + fallback chain execution
+  - `SmartRouterService` classifies query complexity (simple vs complex)
+- **Provider Layer**
+  - OpenAI, Groq, Anthropic, Gemini provider adapters
+- **RAG Layer**
+  - Embedding generation (`EmbeddingClient`)
+  - ACL-filtered retrieval query using `allowed_groups && ?::text[]`
+- **Persistence/Observability**
+  - Postgres tables managed by JPA
+  - Async request logging + cost calculation
+  - Grafana dashboard backed by Postgres datasource
 
-### 1. ACL-Aware RAG (Pre-Retrieval Filtering)
-Standard post-retrieval filtering in vector databases risks data leakage or returning empty contexts. This Gateway enforces **Pre-Retrieval Filtering** using PostgreSQL and `pgvector`.
+## Prerequisites
 
-Access Control Lists (ACLs) are attached directly to vector embeddings during ingestion. By leveraging PostgreSQL's array overlap operator (`&&`), the system enforces Role-Based Access Control (RBAC) *inside* the vector search query, guaranteeing mathematical certainty that the LLM is only augmented with authorized context.
+- Java 21
+- Docker + Docker Compose
+- One or more provider API keys:
+  - `OPENAI_API_KEY`
+  - `GROQ_API_KEY`
+  - `GEMINI_API_KEY`
+  - `CLAUDE_API_KEY`
 
-### 2. Smart Routing & FinOps Arbitrage
-Running trivial queries through flagship models is a massive financial drain. The Gateway features an intelligent routing engine that evaluates prompt complexity before execution.
-* **Complex Reasoning:** Routed to flagship models like GPT-4o or Claude 3.5 Sonnet.
-* **Simple Queries:** Transparently downgraded to highly capable open-weight models (e.g., Llama-3-70b via Groq).
+## Local Setup (End-to-End)
 
-### 3. Asynchronous "Shadow Cost" Observability
-The Gateway tracks both the *Actual Cost* and the *Shadow Cost* (the theoretical cost if the request had not been downgraded).
-To prevent blocking the main execution thread and degrading Time-To-First-Token (TTFT), the system captures the payload metadata mid-stream and executes the FinOps calculations and database persistence in an `@Async` background thread. These metrics are pushed to Grafana via Micrometer to visualize real-time infrastructure savings.
-
-### 4. Edge Resilience & Traffic Control
-Third-party AI APIs are subject to latency spikes and outages. To prevent thread exhaustion from cascading into the internal microservice ecosystem, every AI provider integration is wrapped in a dedicated **Resilience4j Circuit Breaker and Rate Limiter**.
-
-If a provider degrades, the circuit trips, failing fast and instantly routing the request down a configured fallback chain to maintain 99.9% availability.
-
-## 🔌 Supported AI Providers
-
-* **OpenAI** (GPT-4o, GPT-4o-mini)
-* **Anthropic** (Claude 3.5 Sonnet, Opus)
-* **Google** (Gemini 2.5 Pro, Flash)
-* **Groq** (Llama 3 family, Mixtral)
-* **Local/OSS** (Ollama integrations for zero-cost embeddings and testing)
-
-## 🛠️ Technology Stack
-
-* **Language Framework:** Java 21, Spring Boot
-* **AI Integration:** Official Provider SDKs, LangChain4j (Local Embeddings)
-* **Database & Vector Store:** PostgreSQL with `pgvector`, Hibernate 6
-* **Resilience & Security:** Resilience4j (Circuit Breakers/Rate Limiters), Spring Security
-* **Observability:** Grafana
-
----
-
-## 🚀 Getting Started
-
-### 1. Infrastructure Setup (Docker Compose)
-The repository includes a comprehensive `docker-compose.yml` file to instantly provision the required infrastructure layer. Running this will spin up:
-* **PostgreSQL** (with the `pgvector` extension for RBAC RAG)
-* **Ollama** (for local testing and zero-cost embeddings)
-* **Zipkin** (for OpenTelemetry distributed tracing)
-* **Prometheus & Grafana** (for FinOps and metrics observability)
+### 1) Start infrastructure
 
 ```bash
 docker compose up -d
 ```
 
-### 2. Environment Variables (API Keys)
-Security is handled via environment variables. Before starting the Spring Boot application, you must inject your provider API keys. The application.yml is configured to map these dynamically.
+This starts:
+- Postgres (`localhost:5432`)
+- Grafana (`localhost:3000`, admin/admin)
+- pgAdmin (`localhost:5050`, admin@admin.com/admin)
 
-### 3. Run and Test
-Once the infrastructure is running and variables are set, start the Spring Boot application.
+### 2) Export API keys
 
-You can test the Gateway's routing and stream-healing capabilities immediately using Postman or cURL. Send a POST request to your completions endpoint with the payload below.
-
-Notice how the payload uses a flat message array with a system prompt—the Gateway will automatically extract the system instruction and format it to satisfy Anthropic's strict schema requirements on the fly.
-
-```json
-{
-    "model": "claude-opus-4-7",
-    "messages": [
-        {
-            "role": "system",
-            "content": "You are a developer to me, an AI platforms architect"
-        },
-        {
-            "role": "user",
-            "content": "Testing my LLM Gateway. Let me know if it's a success. Also, are you GPT, Llama, Gemini, or Claude?"
-        }
-    ],
-    "stream": true
-}
+```bash
+export OPENAI_API_KEY="..."
+export GROQ_API_KEY="..."
+export GEMINI_API_KEY="..."
+export CLAUDE_API_KEY="..."
 ```
 
-## 📊 Cost Savings Dashboard Example
+If you only test a subset of providers, only those keys are strictly required.
 
-Below is a real Grafana dashboard showing **17% cost savings** on LLM inference, thanks to smart routing and FinOps optimizations:
+### 3) Start the gateway
+
+```bash
+./mvnw spring-boot:run
+```
+
+Default app port: `8080`.
+
+## Configuration Guide
+
+Primary runtime config lives in `src/main/resources/application.yaml`.
+
+- **Database**
+  - `spring.datasource.url=jdbc:postgresql://localhost:5432/gateway_db`
+  - Credentials default to `user/password`
+- **Embeddings**
+  - `gateway.embedding.provider` defaults to `ollama`
+  - Ollama base URL is `http://localhost:11434`
+- **Provider keys**
+  - Loaded from env vars listed above
+- **Model registry**
+  - `gateway.models.*` defines provider, input/output costs, and fallback chain
+- **Rate limit**
+  - `resilience4j.ratelimiter.instances.gateway-api.limit-for-period=1`
+  - Effective default: 1 request per minute (global limiter)
+
+## API Handbook
+
+### 1) Streaming chat completions
+
+`POST /v1/chat/completions`
+
+Headers:
+- `Content-Type: application/json`
+- `Authorization: Bearer <token>`
+
+Note: `Authorization` is currently required by method signature but not validated.
+
+Example request:
+
+```bash
+curl -N -X POST "http://localhost:8080/v1/chat/completions" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer dev-token" \
+  -d '{
+    "model": "claude-opus-4-7",
+    "messages": [
+      {"role": "system", "content": "You are a helpful assistant"},
+      {"role": "user", "content": "Summarize what this gateway does"}
+    ],
+    "temperature": 0.2,
+    "stream": true,
+    "metadata": {
+      "user_id": "alice"
+    }
+  }'
+```
+
+### 2) Document ingestion
+
+`POST /api/documents/ingest`
+
+```bash
+curl -X POST "http://localhost:8080/api/documents/ingest" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": "Quarterly financial policy for engineering",
+    "allowedGroups": ["engineering", "finance"]
+  }'
+```
+
+### 3) Chaos operations
+
+- Open circuit for a provider:
+  - `POST /chaos/break/{provider}`
+- Close circuit:
+  - `POST /chaos/fix/{provider}`
+- List circuit states:
+  - `GET /chaos/list`
+
+Provider names typically include: `openai`, `groq`, `claude`, `gemini`.
+
+## Verification Checklist
+
+1. `docker compose ps` shows healthy Postgres/Grafana/pgAdmin.
+2. Gateway starts without bean/config errors.
+3. `POST /v1/chat/completions` returns streaming chunks.
+4. Rows appear in `request_logs` after requests.
+5. Grafana dashboard `LLM Gateway Operations & FinOps` renders data.
+
+## Grafana Dashboard Snapshot
+
 
 ![Grafana Cost Savings (17%)](docs/grafana-cost-savings.png)
+*Figure: Example Grafana view of LLM Gateway FinOps metrics, highlighting total spend, smart-routing savings, latency by provider, and traffic distribution.*
 
-This dashboard visualizes:
-- Total spend and savings
-- Latency by provider
-- Traffic distribution
-- Savings by target model
-- Top spenders (user audit)
+## Operations and Troubleshooting
+
+- **429 responses immediately**
+  - Rate limiter is configured to 1 request/minute. Raise `limit-for-period` for local testing.
+- **Unknown provider/model errors**
+  - Ensure request model exists in `gateway.models` and has valid `provider`.
+- **No RAG context injected**
+  - Include `metadata.user_id` and ensure matching `users` + `document_chunks` data exists.
+- **Provider auth failures**
+  - Verify env vars are exported in the same shell used to run the app.
+- **Grafana empty panels**
+  - Confirm gateway has written rows to `request_logs`.
+
+## Known Codebase Notes (Important)
+
+- This repo currently includes a few implementation mismatches to be aware of:
+  - `DocumentChunk.embedding` column is `vector(1536)` while Ollama embedding client reports `768` dimensions.
+  - `docker-compose.yml` does not run Ollama, although the default embedding provider is `ollama`.
+  - `RequestLogService` currently stores a hardcoded user id (`test-user`).
+  - Rate limit is intentionally strict for load protection and may feel restrictive in dev.
+
+These do not prevent handbook usage, but they can affect behavior during deeper testing.
+
+## Development Commands
+
+- Run tests:
+  - `./mvnw test`
+- Build jar:
+  - `./mvnw clean package`
+- Run app:
+  - `./mvnw spring-boot:run`
+
+## Suggested Next Improvements
+
+- Add an `.env.example` with all required keys.
+- Add Docker service for Ollama or switch default embedding provider to OpenAI.
+- Expose Actuator endpoints explicitly if Prometheus scraping is needed.
+- Add request authentication/authorization enforcement for `Authorization` header.
