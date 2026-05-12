@@ -3,6 +3,7 @@ package com.llm.gateway.llm_gateway.infrastructure.provider;
 import com.google.genai.Client;
 import com.google.genai.types.Content;
 import com.google.genai.types.GenerateContentConfig;
+import com.google.genai.types.GenerateContentResponse;
 import com.google.genai.types.Part;
 import com.llm.gateway.llm_gateway.domain.model.GatewayRequest;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
@@ -62,12 +63,21 @@ public class GeminiProvider implements LLMProvider {
             configBuilder.temperature(request.temperature().floatValue());
         }
 
-        // 2. Execution
+        var config = configBuilder.build();
+
         try {
-            // Pass the model, the chat history list, and the config object
-            client.models.generateContentStream(request.model(), chatHistory, configBuilder.build())
+            if (!request.shouldStream()) {
+                GenerateContentResponse response =
+                        client.models.generateContent(request.model(), chatHistory, config);
+                String text = response.text();
+                if (text != null && !text.isEmpty()) {
+                    chunkHandler.accept(text);
+                }
+                return;
+            }
+
+            client.models.generateContentStream(request.model(), chatHistory, config)
                     .forEach(chunk -> {
-                        // Gemini makes extracting the text much easier!
                         String text = chunk.text();
                         if (text != null && !text.isEmpty()) {
                             chunkHandler.accept(text);
@@ -75,7 +85,7 @@ public class GeminiProvider implements LLMProvider {
                     });
 
         } catch (Exception e) {
-            log.error("Error during Gemini streaming: ", e);
+            log.error("Error during Gemini completion: ", e);
             throw e;
         }
     }

@@ -8,6 +8,7 @@ import com.llm.gateway.llm_gateway.infrastructure.persistence.RequestLogService;
 import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -31,13 +32,48 @@ public class ChatController {
         this.requestLogService = requestLogService;
     }
 
-    @PostMapping(value = "/completions", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @PostMapping("/completions")
     @RateLimiter(name="gateway-api", fallbackMethod = "rateLimitFallback")
-    public ResponseEntity<SseEmitter> chat(@RequestBody GatewayRequest requestDto,
+    public ResponseEntity<?> chat(@RequestBody GatewayRequest requestDto,
                            @RequestHeader("Authorization") String authHeader) {
 
         int inputTokens = tokenService.estimateInputTokens(requestDto);
         long startTime = System.currentTimeMillis();
+
+        if (!requestDto.shouldStream()) {
+            try {
+                StringBuilder responseBuffer = new StringBuilder();
+                ExecutionMetadata metadata = routerService.routeAndExecute(requestDto, responseBuffer::append);
+                String fullResponse = responseBuffer.toString();
+                int outputTokens = tokenService.count(fullResponse);
+                long duration = System.currentTimeMillis() - startTime;
+                logUsage(metadata.modelUsed(), inputTokens, outputTokens, duration);
+                requestLogService.log(requestDto, metadata.provider(), metadata.modelUsed(), metadata.modelRequested(),
+                        inputTokens, outputTokens, duration, true);
+                var body = new NonStreamingChatResponse(
+                        fullResponse,
+                        metadata.provider(),
+                        metadata.modelRequested(),
+                        metadata.modelUsed());
+                return ResponseEntity.ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(body);
+            } catch (Exception e) {
+                log.error("Chat completion failed", e);
+                logUsage(requestDto.model(), inputTokens, 0, 0);
+                requestLogService.log(
+                        requestDto,
+                        "unknown",
+                        "unknown",
+                        "unknown",
+                        inputTokens,
+                        0,
+                        System.currentTimeMillis() - startTime,
+                        false
+                );
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            }
+        }
 
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE);
 
@@ -82,7 +118,9 @@ public class ChatController {
             }
         });
 
-        return ResponseEntity.status(200).body(emitter);
+        return ResponseEntity.ok()
+                .contentType(MediaType.TEXT_EVENT_STREAM)
+                .body(emitter);
     }
 
     private void logUsage(String model, int promptTokens, int completionTokens, long ms) {
@@ -91,7 +129,7 @@ public class ChatController {
                 model, promptTokens, completionTokens, promptTokens + completionTokens, ms);
     }
 
-    public ResponseEntity<SseEmitter> rateLimitFallback(GatewayRequest request, String authHeader, Throwable t) {
-        return ResponseEntity.status(429).body(null);
+    public ResponseEntity<?> rateLimitFallback(GatewayRequest request, String authHeader, Throwable t) {
+        return ResponseEntity.status(429).build();
     }
 }

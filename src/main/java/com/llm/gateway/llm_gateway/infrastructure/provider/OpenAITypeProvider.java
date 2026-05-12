@@ -4,6 +4,7 @@ import com.llm.gateway.llm_gateway.service.RouterService;
 import com.llm.gateway.llm_gateway.domain.model.GatewayRequest;
 import com.openai.client.OpenAIClient;
 import com.openai.models.ChatModel;
+import com.openai.models.chat.completions.ChatCompletion;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,19 +23,26 @@ public class OpenAITypeProvider implements LLMProvider {
 
     @Override
     public void streamChat(GatewayRequest request, Consumer<String> chunkHandler) {
-        // 1. Internal Mapping (DTO -> OpenAI SDK)
         ChatCompletionCreateParams params = mapToOpenAI(request);
 
-        // 2. Execution
-        try{
+        try {
+            if (!request.shouldStream()) {
+                ChatCompletion completion = client.chat().completions().create(params);
+                completion.choices().stream()
+                        .findFirst()
+                        .flatMap(c -> c.message().content())
+                        .ifPresent(chunkHandler::accept);
+                return;
+            }
+
             client.chat().completions().createStreaming(params).stream()
                     .forEach(chunk -> {
-                        if (chunk.choices().size() > 0) {
+                        if (!chunk.choices().isEmpty()) {
                             chunk.choices().get(0).delta().content().ifPresent(chunkHandler::accept);
                         }
                     });
-        } catch (Exception e){
-            log.error("Error during OpenAI streaming: ", e);
+        } catch (Exception e) {
+            log.error("Error during OpenAI completion: ", e);
             throw e;
         }
     }

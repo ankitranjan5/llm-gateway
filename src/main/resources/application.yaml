@@ -12,7 +12,7 @@ spring:
 
   datasource:
     url: jdbc:postgresql://localhost:5432/gateway_db
-    username: user
+    username: admin
     password: password
 
       # standard spring boot config
@@ -64,9 +64,9 @@ resilience4j:
   ratelimiter:
     instances:
       gateway-api:
-        limit-for-period: 1
+        limit-for-period: 100
         limit-refresh-period: 1m
-        timeout-duration: 0s
+        timeout-duration: 10s
 
 
 openai:
@@ -91,6 +91,12 @@ gateway:
     provider: "ollama"
   models:
     # High-End Model
+    "[llama3.1]":
+      provider: "ollama"
+      input-cost: 0
+      output-cost: 0
+      fallbacks: []
+
     gpt-4o-mini:
       provider: "openai"
       input-cost: 5.00
@@ -137,3 +143,5 @@ log:
     root: DEBUG
     com.example.gateway: DEBUG
 
+server:
+  port: 8090

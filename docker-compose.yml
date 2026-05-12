@@ -1,47 +1,98 @@
-services:
-  # 1. Your Java App
-#  app:
-#    build: .
+#services:
+#  # 1. Your Java App
+##  app:
+##    build: .
+##    ports:
+##      - "8080:8080"
+##    environment:
+##      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/gateway_db
+##      - SPRING_DATASOURCE_USERNAME=user
+##      - SPRING_DATASOURCE_PASSWORD=password
+##      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+##    depends_on:
+##      - postgres
+#
+#  # 2. Database
+#  postgres:
+#    image: pgvector/pgvector:pg15
 #    ports:
-#      - "8080:8080"
+#      - "5432:5432"
 #    environment:
-#      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/gateway_db
-#      - SPRING_DATASOURCE_USERNAME=user
-#      - SPRING_DATASOURCE_PASSWORD=password
-#      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+#      - POSTGRES_DB=gateway_db
+#      - POSTGRES_USER=user
+#      - POSTGRES_PASSWORD=password
+#    volumes:
+#      - postgres_data:/var/lib/postgresql/data
+#
+#  # 3. Grafana (Pre-configured)
+#  grafana:
+#    image: grafana/grafana:latest
+#    ports:
+#      - "3000:3000"
+#    volumes:
+#      # Mount our config files into the container
+#      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+#      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+#    environment:
+#      - GF_SECURITY_ADMIN_PASSWORD=admin
+#      - GF_INSTALL_PLUGINS=grafana-piechart-panel
 #    depends_on:
 #      - postgres
+#
+#  pgadmin:
+#    image: dpage/pgadmin4
+#    container_name: llm_gateway_pgadmin
+#    environment:
+#      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+#      PGADMIN_DEFAULT_PASSWORD: admin
+#    ports:
+#      - "5050:80"
+#    depends_on:
+#      - postgres
+#
+#volumes:
+#  postgres_data:
 
-  # 2. Database
+version: '3.8'
+
+services:
+  # --- 1. SHARED DATABASE ---
   postgres:
-    image: pgvector/pgvector:pg15
+    image: pgvector/pgvector:pg16
+    container_name: shared-postgres
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_DB=gateway_db
-      - POSTGRES_USER=user
+      - POSTGRES_USER=admin
       - POSTGRES_PASSWORD=password
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-  # 3. Grafana (Pre-configured)
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "3000:3000"
-    volumes:
-      # Mount our config files into the container
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
-      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+  # --- 2. AUTOMATIC DATABASE CREATION SIDECAR ---
+  db-init:
+    image: postgres:16-alpine
+    container_name: shared-db-init
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+    environment:
+      - PGPASSWORD=password
+    command: >
+      bash -c "
+      psql -h postgres -U admin -d postgres -tc \"SELECT 1 FROM pg_database WHERE datname = 'gateway_db'\" | grep -q 1 || psql -h postgres -U admin -d postgres -c 'CREATE DATABASE gateway_db';
+      psql -h postgres -U admin -d postgres -tc \"SELECT 1 FROM pg_database WHERE datname = 'jiratokensdb'\" | grep -q 1 || psql -h postgres -U admin -d postgres -c 'CREATE DATABASE jiratokensdb';
+      echo 'Databases initialized successfully.'
+      "
 
+  # --- 3. SHARED PGADMIN ---
   pgadmin:
     image: dpage/pgadmin4
-    container_name: llm_gateway_pgadmin
+    container_name: shared-pgadmin
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@admin.com
       PGADMIN_DEFAULT_PASSWORD: admin
@@ -50,5 +101,22 @@ services:
     depends_on:
       - postgres
 
+  # --- 4. GRAFANA (From LLM Gateway) ---
+  grafana:
+    image: grafana/grafana:latest
+    container_name: shared-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      # WARNING: See note below regarding these relative paths
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    depends_on:
+      - postgres
+
 volumes:
   postgres_data:
+    name: shared_postgres_data # Explicitly named so both projects share the exact same volume

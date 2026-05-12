@@ -54,7 +54,7 @@ public class RouterService {
 
         if (!smartRouter.isComplexQuery(userQuery)) {
             log.info("🚀 Simple query detected. Downgrading to Llama-3-70b to save costs.");
-            targetModel = "llama-3.1-8b-instant";
+            targetModel = "llama3.1";
         }
 
         List<String> contextDocs = null;

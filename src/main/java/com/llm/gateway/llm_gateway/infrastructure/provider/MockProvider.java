@@ -11,6 +11,11 @@ public class MockProvider implements LLMProvider {
     public void streamChat(GatewayRequest request, Consumer<String> chunkHandler) {
         String[] words = {"This ", "is ", "a ", "mock ", "response ", "from ", "Java ", "21!"};
 
+        if (!request.shouldStream()) {
+            chunkHandler.accept(String.join("", words));
+            return;
+        }
+
         for (String word : words) {
             try {
                 Thread.sleep(200); // Simulate network latency

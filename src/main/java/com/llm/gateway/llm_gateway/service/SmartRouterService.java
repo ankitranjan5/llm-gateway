@@ -21,7 +21,7 @@ public class SmartRouterService {
         Do not output any other text.
     """;
 
-        GatewayRequest classificationRequest = new GatewayRequest("llama-3.1-8b-instant",
+        GatewayRequest classificationRequest = new GatewayRequest("llama3.1",
                 List.of(new GatewayRequest.MessageDto("system", systemInstruction),
                         new GatewayRequest.MessageDto("user", userPrompt)),
         0.0, false, Map.of());

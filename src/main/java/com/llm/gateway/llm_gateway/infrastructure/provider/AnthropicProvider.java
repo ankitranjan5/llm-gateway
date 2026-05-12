@@ -2,8 +2,10 @@ package com.llm.gateway.llm_gateway.infrastructure.provider;
 
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.models.messages.MessageCreateParams;
+import com.anthropic.models.messages.Message;
 import com.anthropic.models.messages.MessageParam;
 import com.anthropic.models.messages.MessageParam.Role;
+import com.anthropic.models.messages.TextBlock;
 import com.llm.gateway.llm_gateway.domain.model.GatewayRequest;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import org.slf4j.Logger;
@@ -12,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.function.Consumer;
 
 @Service("anthropic")
@@ -86,19 +89,26 @@ public class AnthropicProvider implements LLMProvider {
             }
         }
 
-        // 3. Execution (Streaming)
+        MessageCreateParams params = builder.build();
+
         try {
-            // Assuming your SDK exposes the standard .stream() method for Server-Sent Events
-            client.messages().createStreaming(builder.build()).stream()
-                    .forEach(event -> {
-                        // The Anthropic stream returns different event types.
-                        // We only care about the delta text.
-                        event.contentBlockDelta().ifPresent(deltaEvent->{
-                            deltaEvent.delta().text().ifPresent(ev->chunkHandler.accept(ev.text()));
-                        });
-                    });
+            if (!request.shouldStream()) {
+                Message message = client.messages().create(params);
+                String text = message.content().stream()
+                        .flatMap(b -> b.text().stream())
+                        .map(TextBlock::text)
+                        .collect(Collectors.joining());
+                if (!text.isEmpty()) {
+                    chunkHandler.accept(text);
+                }
+                return;
+            }
+
+            client.messages().createStreaming(params).stream()
+                    .forEach(event -> event.contentBlockDelta().ifPresent(deltaEvent ->
+                            deltaEvent.delta().text().ifPresent(ev -> chunkHandler.accept(ev.text()))));
         } catch (Exception e) {
-            log.error("Error during Claude streaming: ", e);
+            log.error("Error during Claude completion: ", e);
             throw e;
         }
     }

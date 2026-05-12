@@ -15,6 +15,33 @@ public record GatewayRequest(
         Map<String, Object> metadata
 ) {
     public record MessageDto(String role, String content) {}
+
+    /**
+     * {@code metadata.streaming} overrides the top-level {@code stream} flag when present.
+     * Defaults to streaming when neither is set.
+     */
+    public boolean shouldStream() {
+        if (metadata != null && metadata.containsKey("streaming")) {
+            return coerceStreamingFlag(metadata.get("streaming"));
+        }
+        if (stream != null) {
+            return stream;
+        }
+        return true;
+    }
+
+    private static boolean coerceStreamingFlag(Object value) {
+        if (value instanceof Boolean b) {
+            return b;
+        }
+        if (value instanceof String s) {
+            return !"false".equalsIgnoreCase(s) && !"0".equals(s);
+        }
+        if (value instanceof Number n) {
+            return n.intValue() != 0;
+        }
+        return true;
+    }
 }
 
 
