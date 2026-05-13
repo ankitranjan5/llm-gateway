@@ -10,8 +10,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 @Service
@@ -52,10 +55,10 @@ public class RouterService {
         String currentModelId = request.model();
         String targetModel = request.model();
 
-        if (!smartRouter.isComplexQuery(userQuery)) {
-            log.info("🚀 Simple query detected. Downgrading to Llama-3-70b to save costs.");
-            targetModel = "llama3.1";
-        }
+//        if (!smartRouter.isComplexQuery(userQuery)) {
+//            log.info("🚀 Simple query detected. Downgrading to Llama-3-70b to save costs.");
+//            targetModel = "llama3.1";
+//        }
 
         List<String> contextDocs = null;
 
@@ -102,7 +105,9 @@ public class RouterService {
                                 request.messages(),
                                 request.temperature(),
                                 request.stream(),
-                                request.metadata()
+                                request.metadata(),
+                                request.tools(),
+                                request.tool_choice()
                         );
 
                         return execute(fallbackModelId, fallbackModelId, fallbackConfig.getProvider(), fallbackReq, chunkHandler);
@@ -128,8 +133,9 @@ public class RouterService {
         LLMProvider provider = providers.get(providerName);
         if (provider == null) throw new IllegalArgumentException("Unknown provider: " + providerName);
 
-        provider.streamChat(req, handler);
-        return new ExecutionMetadata(providerName, modelRequested, modelUsed);
+        AtomicReference<JsonNode> toolCallsRef = new AtomicReference<>();
+        provider.streamChat(req, handler, toolCallsRef::set);
+        return new ExecutionMetadata(providerName, modelRequested, modelUsed, toolCallsRef.get());
     }
 
 
@@ -149,7 +155,9 @@ public class RouterService {
                     originalRequest.messages(),
                     originalRequest.temperature(),
                     originalRequest.stream(),
-                    originalRequest.metadata()
+                    originalRequest.metadata(),
+                    originalRequest.tools(),
+                    originalRequest.tool_choice()
             );
         }
 
@@ -190,7 +198,9 @@ public class RouterService {
                 newMessages,
                 originalRequest.temperature(),
                 originalRequest.stream(),
-                originalRequest.metadata()
+                originalRequest.metadata(),
+                originalRequest.tools(),
+                originalRequest.tool_choice()
         );
     }
 }

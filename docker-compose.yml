@@ -86,6 +86,7 @@ services:
       bash -c "
       psql -h postgres -U admin -d postgres -tc \"SELECT 1 FROM pg_database WHERE datname = 'gateway_db'\" | grep -q 1 || psql -h postgres -U admin -d postgres -c 'CREATE DATABASE gateway_db';
       psql -h postgres -U admin -d postgres -tc \"SELECT 1 FROM pg_database WHERE datname = 'jiratokensdb'\" | grep -q 1 || psql -h postgres -U admin -d postgres -c 'CREATE DATABASE jiratokensdb';
+      psql -h postgres -U admin -d postgres -tc \"SELECT 1 FROM pg_database WHERE datname = 'eval_db'\" | grep -q 1 || psql -h postgres -U admin -d postgres -c 'CREATE DATABASE eval_db';
       echo 'Databases initialized successfully.'
       "
 

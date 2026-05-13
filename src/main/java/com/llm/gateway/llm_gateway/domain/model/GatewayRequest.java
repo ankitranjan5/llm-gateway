@@ -12,7 +12,9 @@ public record GatewayRequest(
 
         // CAPTURE EXTRA FIELDS:
         // If a client sends {"custom_strategy": "fast"}, it lands here!
-        Map<String, Object> metadata
+        Map<String, Object> metadata,
+        List<Map<String, Object>> tools,
+        String tool_choice
 ) {
     public record MessageDto(String role, String content) {}
 

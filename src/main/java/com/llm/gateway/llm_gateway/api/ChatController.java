@@ -54,7 +54,8 @@ public class ChatController {
                         fullResponse,
                         metadata.provider(),
                         metadata.modelRequested(),
-                        metadata.modelUsed());
+                        metadata.modelUsed(),
+                        metadata.toolCalls());
                 return ResponseEntity.ok()
                         .contentType(MediaType.APPLICATION_JSON)
                         .body(body);

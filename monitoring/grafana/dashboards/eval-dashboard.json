@@ -1,0 +1,134 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": "EvalDB",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 70 },
+              { "color": "green", "value": 90 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 6, "w": 4, "x": 0, "y": 0 },
+      "id": 1,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "" }, "orientation": "auto" },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT (SUM(passed_tests)::float / NULLIF(SUM(total_tests), 0)) * 100 as value FROM eval_runs",
+          "refId": "A"
+        }
+      ],
+      "title": "Overall Agent Accuracy",
+      "type": "gauge"
+    },
+    {
+      "datasource": "EvalDB",
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [ { "color": "blue", "value": null } ] } } },
+      "gridPos": { "h": 6, "w": 4, "x": 0, "y": 6 },
+      "id": 2,
+      "options": { "reduceOptions": { "calcs": ["sum"], "fields": "" }, "colorMode": "value" },
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) as value FROM eval_results",
+          "refId": "A"
+        }
+      ],
+      "title": "Total Evaluations Run",
+      "type": "stat"
+    },
+    {
+      "datasource": "EvalDB",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "showPoints": "always", "pointSize": 5 }
+        }
+      },
+      "gridPos": { "h": 12, "w": 16, "x": 4, "y": 0 },
+      "id": 3,
+      "targets": [
+        {
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT run_timestamp as \"time\", (passed_tests::float / total_tests) * 100 as value, worker_model as metric FROM eval_runs WHERE $__timeFilter(run_timestamp) ORDER BY run_timestamp ASC",
+          "refId": "A"
+        }
+      ],
+      "title": "Success Rate Over Time by Model",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "EvalDB",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 12 },
+      "id": 4,
+      "options": { "reduceOptions": { "values": true, "calcs": [] }, "pieType": "donut", "tooltip": { "mode": "single", "sort": "none" } },
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT target_tool, count(*) as count FROM eval_results WHERE target_tool IS NOT NULL GROUP BY 1",
+          "refId": "A"
+        }
+      ],
+      "title": "Tool Call Distribution",
+      "type": "piechart"
+    },
+    {
+      "datasource": "EvalDB",
+      "fieldConfig": { "defaults": { "unit": "ms" } },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 12 },
+      "id": 5,
+      "options": { "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true },
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT target_tool as metric, AVG(latency_ms) as value FROM eval_results GROUP BY 1 ORDER BY value DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "Avg Latency per Tool",
+      "type": "bargauge"
+    },
+    {
+      "datasource": "EvalDB",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 12 },
+      "id": 6,
+      "options": { "footer": { "show": false }, "showHeader": true },
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT query as \"Failed Query\", judge_reasoning as \"Reasoning\" FROM eval_results WHERE logic_pass = false ORDER BY id DESC LIMIT 10",
+          "refId": "A"
+        }
+      ],
+      "title": "Hallucination Ledger (Latest Failures)",
+      "type": "table"
+    }
+  ],
+  "schemaVersion": 38,
+  "style": "dark",
+  "time": { "from": "now-6h", "to": "now" },
+  "title": "AI Agent Evaluation Framework",
+  "uid": "ai-agent-eval-dashboard",
+  "version": 1
+}

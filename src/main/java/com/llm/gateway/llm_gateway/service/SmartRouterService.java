@@ -24,7 +24,7 @@ public class SmartRouterService {
         GatewayRequest classificationRequest = new GatewayRequest("llama3.1",
                 List.of(new GatewayRequest.MessageDto("system", systemInstruction),
                         new GatewayRequest.MessageDto("user", userPrompt)),
-        0.0, false, Map.of());
+                0.0, false, Map.of(), null, null);
 
         // Call your provider execution directly (blocking for the single word)
         StringBuilder result = new StringBuilder();

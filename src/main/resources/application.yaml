@@ -97,6 +97,12 @@ gateway:
       output-cost: 0
       fallbacks: []
 
+    "[gemma2:9b]":
+      provider: "ollama"
+      input-cost: 0
+      output-cost: 0
+      fallbacks: []
+
     gpt-4o-mini:
       provider: "openai"
       input-cost: 5.00

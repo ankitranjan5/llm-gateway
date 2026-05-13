@@ -6,11 +6,25 @@ datasources:
 #    uid: gateway-db-uid
 #    access: proxy
     url: postgres:5432
-    user: user
+    user: admin
     secureJsonData:
       password: 'password'
 #    isDefault: true
     jsonData:
       database: gateway_db
+      sslmode: "disable"
+      postgresVersion: 1500
+
+  - name: EvalDB
+    type: postgres
+    #    uid: gateway-db-uid
+    #    access: proxy
+    url: postgres:5432
+    user: admin
+    secureJsonData:
+      password: 'password'
+    #    isDefault: true
+    jsonData:
+      database: eval_db
       sslmode: "disable"
       postgresVersion: 1500
