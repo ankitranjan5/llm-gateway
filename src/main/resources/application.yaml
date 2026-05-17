@@ -102,6 +102,11 @@ gateway:
       input-cost: 0
       output-cost: 0
       fallbacks: []
+    "[qwen2.5:7b]":
+      provider: "ollama"
+      input-cost: 0
+      output-cost: 0
+      fallbacks: []
 
     gpt-4o-mini:
       provider: "openai"

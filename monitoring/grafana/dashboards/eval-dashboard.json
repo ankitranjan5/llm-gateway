@@ -68,7 +68,7 @@
         {
           "format": "time_series",
           "rawQuery": true,
-          "rawSql": "SELECT run_timestamp as \"time\", (passed_tests::float / total_tests) * 100 as value, worker_model as metric FROM eval_runs WHERE $__timeFilter(run_timestamp) ORDER BY run_timestamp ASC",
+          "rawSql": "SELECT run_timestamp as \"time\", (passed_tests::float / NULLIF(total_tests, 0)) * 100 as value,  worker_model as metric FROM eval_runs WHERE $__timeFilter(run_timestamp) ORDER BY run_timestamp ASC",
           "refId": "A"
         }
       ],
